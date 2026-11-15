@@ -24,6 +24,7 @@
     .item{border-top:1px solid #e2e8f0;padding:14px 0}.item:first-child{border-top:0;padding-top:0}.item h3{font-size:16px;margin:0 0 5px}
     .stats{display:flex;gap:18px;flex-wrap:wrap;margin:9px 0}.stats span{font-size:13px;color:#475569}.profit{font-weight:800;color:#047857}.loss{font-weight:800;color:#b91c1c}
     .item a{color:#1d4ed8;font-size:13px;overflow-wrap:anywhere}.empty{color:#64748b;text-align:center;padding:18px}
+    .status{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:750;margin:4px 0 7px}.status.good{background:#dcfce7;color:#166534}.status.mid{background:#fef3c7;color:#92400e}.status.bad{background:#fee2e2;color:#991b1b}
     .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.toolbar input{flex:1;min-width:170px}
     details summary{cursor:pointer;font-weight:650;font-size:14px}
     @media(max-width:560px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}.top{padding:20px 18px}}
@@ -56,6 +57,18 @@
   </section>
 
   <section class="card">
+    <h2>Einstellungen · Schnäppchen-Bewertung</h2>
+    <p class="muted">Lege selbst fest, ab welchem Gewinn und welcher Rendite ein Angebot als Schnäppchen oder interessant eingestuft wird. Änderungen werden automatisch auf diesem Gerät gespeichert und auf alle Angebote angewendet.</p>
+    <div class="grid">
+      <div><label for="cfgGoodProfit">Mindestgewinn für „Schnäppchen“ (€)</label><input id="cfgGoodProfit" type="number" min="0" step="1" value="30"></div>
+      <div><label for="cfgGoodMargin">Mindestrendite für „Schnäppchen“ (%)</label><input id="cfgGoodMargin" type="number" min="0" step="1" value="25"></div>
+      <div><label for="cfgMidProfit">Mindestgewinn für „Interessant“ (€)</label><input id="cfgMidProfit" type="number" min="0" step="1" value="15"></div>
+    </div>
+    <p id="settingsInfo" class="muted">Standardeinstellungen aktiv.</p>
+    <div class="actions"><button class="secondary" type="button" id="resetSettings">Standardeinstellungen wiederherstellen</button></div>
+  </section>
+
+  <section class="card">
     <div class="toolbar"><h2 style="margin:0;flex:1">Meine Angebote</h2><input id="filter" placeholder="Liste durchsuchen ..."></div>
     <div id="list" style="margin-top:14px"></div>
   </section>
@@ -72,9 +85,16 @@
 <script>
 const $ = id => document.getElementById(id);
 const KEY='schnappchenScannerDealsV1';
+const SETTINGS_KEY='schnappchenScannerSettingsV1';
+const DEFAULT_SETTINGS={goodProfit:30,goodMargin:25,midProfit:15};
+let settings={...DEFAULT_SETTINGS};
+try{settings={...DEFAULT_SETTINGS,...JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}')}}catch(e){}
 let deals=[];
 try{deals=JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){deals=[]}
 function persist(){localStorage.setItem(KEY,JSON.stringify(deals));render()}
+function saveSettings(){settings={goodProfit:Math.max(0,Number($('cfgGoodProfit').value)||0),goodMargin:Math.max(0,Number($('cfgGoodMargin').value)||0),midProfit:Math.max(0,Number($('cfgMidProfit').value)||0)};localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));$('settingsInfo').textContent='Einstellungen gespeichert. Die Bewertung aller Angebote wurde aktualisiert.';render()}
+function loadSettings(){ $('cfgGoodProfit').value=settings.goodProfit; $('cfgGoodMargin').value=settings.goodMargin; $('cfgMidProfit').value=settings.midProfit; }
+function rating(c,hasEbay){if(!hasEbay)return {label:'Noch keine Bewertung',cls:'mid'};if(c.net>=settings.goodProfit&&c.margin>=settings.goodMargin)return {label:'Schnäppchen',cls:'good'};if(c.net>=settings.midProfit)return {label:'Interessant',cls:'mid'};return {label:'Uninteressant',cls:'bad'}}
 function euro(n){return new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(Number(n)||0)}
 function safe(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function calc(d){const ebay=Number(d.ebay)||0,buy=Number(d.buy)||0,ship=Number(d.ship)||0,fees=Number(d.fees)||0;const net=ebay-(ebay*fees/100)-buy-ship;return {net,margin:buy?net/buy*100:0}}
@@ -85,19 +105,21 @@ function render(){
  const q=$('filter').value.toLowerCase();
  const found=deals.filter(d=>(d.title+' '+d.notes).toLowerCase().includes(q));
  if(!found.length){$('list').innerHTML='<div class="empty">Noch keine Angebote gespeichert. Teile eine Anzeige mit der App oder erfasse sie oben.</div>';return}
- $('list').innerHTML=found.map(d=>{const c=calc(d);return `<article class="item"><h3>${safe(d.title)}</h3><div class="stats"><span>Kleinanzeigen: <b>${euro(d.buy)}</b></span><span>eBay-Median: <b>${d.ebay?euro(d.ebay):'noch offen'}</b></span></div><div class="stats"><span>Geschätzter Gewinn: <b class="${c.net>=0?'profit':'loss'}">${d.ebay?euro(c.net):'noch nicht berechnet'}</b></span><span>Rendite: <b>${d.ebay?c.margin.toFixed(1).replace('.',',')+' %':'–'}</b></span></div>${d.notes?`<p class="muted">${safe(d.notes)}</p>`:''}${d.url?`<a href="${safe(d.url)}" target="_blank" rel="noopener">Kleinanzeigen-Anzeige öffnen ↗</a>`:''}<div class="actions"><button class="secondary" onclick="editDeal('${d.id}')">Bearbeiten</button><button class="danger" onclick="deleteDeal('${d.id}')">Löschen</button></div></article>`}).join('');
+ $('list').innerHTML=found.map(d=>{const c=calc(d);const r=rating(c,!!d.ebay);return `<article class="item"><h3>${safe(d.title)}</h3><span class="status ${r.cls}">${r.label}</span><div class="stats"><span>Kleinanzeigen: <b>${euro(d.buy)}</b></span><span>eBay-Median: <b>${d.ebay?euro(d.ebay):'noch offen'}</b></span></div><div class="stats"><span>Geschätzter Gewinn: <b class="${c.net>=0?'profit':'loss'}">${d.ebay?euro(c.net):'noch nicht berechnet'}</b></span><span>Rendite: <b>${d.ebay?c.margin.toFixed(1).replace('.',',')+' %':'–'}</b></span></div>${d.notes?`<p class="muted">${safe(d.notes)}</p>`:''}${d.url?`<a href="${safe(d.url)}" target="_blank" rel="noopener">Kleinanzeigen-Anzeige öffnen ↗</a>`:''}<div class="actions"><button class="secondary" onclick="editDeal('${d.id}')">Bearbeiten</button><button class="danger" onclick="deleteDeal('${d.id}')">Löschen</button></div></article>`}).join('');
 }
 function clearForm(){ $('dealForm').reset();$('ship').value='0';$('fees').value='0';$('dealForm').dataset.edit=''}
 function addFromForm(e){e.preventDefault();const id=$('dealForm').dataset.edit||crypto.randomUUID();const old=deals.find(x=>x.id===id);const d={id,title:$('title').value.trim(),url:$('url').value.trim(),buy:$('buy').value,ebay:$('ebay').value,ship:$('ship').value,fees:$('fees').value,soldPrices:$('soldPrices').value,notes:$('notes').value,created:old?.created||new Date().toISOString()};const i=deals.findIndex(x=>x.id===id);if(i>=0)deals[i]=d;else deals.unshift(d);persist();clearForm()}
 function editDeal(id){const d=deals.find(x=>x.id===id);if(!d)return;for(const k of ['title','url','buy','ebay','ship','fees','soldPrices','notes'])$(k).value=d[k]??'';updateMedian();$('dealForm').dataset.edit=id;window.scrollTo({top:0,behavior:'smooth'})}
 function deleteDeal(id){if(confirm('Dieses Angebot löschen?')){deals=deals.filter(x=>x.id!==id);persist()}}
 $('dealForm').addEventListener('submit',addFromForm);$('reset').onclick=clearForm;$('filter').oninput=render;$('soldPrices').addEventListener('input',updateMedian);
+for(const id of ['cfgGoodProfit','cfgGoodMargin','cfgMidProfit'])$(id).addEventListener('change',saveSettings);
+$('resetSettings').onclick=()=>{settings={...DEFAULT_SETTINGS};loadSettings();localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));$('settingsInfo').textContent='Standardeinstellungen wiederhergestellt.';render()};
 $('ebaySearch').onclick=()=>{const q=$('title').value.trim();if(!q){alert('Bitte zuerst den Artikel oder das genaue Modell eintragen.');$('title').focus();return}const url='https://www.ebay.de/sch/i.html?_nkw='+encodeURIComponent(q)+'&LH_Sold=1&LH_Complete=1';window.open(url,'_blank','noopener')};
 $('export').onclick=()=>{const blob=new Blob([JSON.stringify(deals,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='schnappchen-scanner-daten.json';a.click();URL.revokeObjectURL(a.href)};
 $('clearAll').onclick=()=>{if(confirm('Wirklich alle lokal gespeicherten Angebote löschen?')){deals=[];persist()}};
 function receiveShare(){const p=new URLSearchParams(location.search);const sharedUrl=p.get('url')||'';const title=p.get('title')||p.get('text')||'';if(sharedUrl||title){$('url').value=sharedUrl;const clean=title.replace(sharedUrl,'').trim();if(clean)$('title').value=clean.slice(0,140);history.replaceState({},'',location.pathname)}}
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
-receiveShare();render();
+loadSettings();receiveShare();render();
 </script>
 </body>
 </html>
