@@ -220,9 +220,7 @@ function suggestEbayQuery(raw){
  const stop=new Set(['zustand','top','gut','guter','gute','gebraucht','wie','neu','neuwertig','funktioniert','einwandfrei','muss','weg','schnell','abzugeben','angebot','vb','festpreis','inkl','inklusive','versand','nur','heute','selten','original','siehe','bilder','bild','privat','verkaufe','verkauft','akku','akkus','zubehör','mit','ohne','und','der','die','das','für','von']);
  const words=String(raw||'').replace(/https?:\/\/\S+/gi,' ').replace(/[€£$]\s*\d+[.,]?\d*/g,' ').replace(/\d+[.,]?\d*\s*(?:€|EUR)/gi,' ').replace(/[^\p{L}\p{N}+.-]+/gu,' ').trim().split(/\s+/).filter(Boolean);
  const useful=words.filter(w=>!stop.has(w.toLowerCase()));
- const model=useful.filter(w=>/\d/.test(w));
- const chosen=model.length?[useful[0],...model.filter(w=>w!==useful[0])]:useful.slice(0,4);
- return [...new Set(chosen.filter(Boolean))].slice(0,5).join(' ');
+ return useful.slice(0,5).join(' ');
 }
 function parseSharedListingText(raw,sharedUrl=''){
  let text=String(raw||'').replace(sharedUrl,' ').replace(/https?:\/\/\S+/gi,' ').replace(/[\r\n]+/g,' ').replace(/\s+/g,' ').trim();
