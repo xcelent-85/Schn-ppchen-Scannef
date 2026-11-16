@@ -7,7 +7,7 @@
   <meta name="description" content="Persönlicher Schnäppchen-Scanner für Kleinanzeigen und eBay-Preisvergleiche.">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <title>Schnäppchen-Scanner · Version 2.3</title>
+  <title>Schnäppchen-Scanner · Version 2.4</title>
   <style>
     :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#172033;background:#f3f5f9}
     *{box-sizing:border-box}body{margin:0}.top{background:#172554;color:white;padding:24px max(18px,calc((100% - 920px)/2)) 26px}
@@ -46,7 +46,7 @@
     <button type="button" id="navSettings" class="secondary" aria-current="false">⚙️ Einstellungen</button>
   </nav>
   <div id="offersView">
-  <div class="notice"><strong>Version 2.3:</strong> Der manuelle Import ist jetzt eingeklappt und kann bei Bedarf geöffnet werden.  Suchaufträge lassen sich jetzt übersichtlich als Kategorie-Suche oder Artikel-/Modell-Suche anlegen. Beide Varianten nutzen dasselbe Formular. Eine automatische Hintergrundsuche ist noch nicht aktiviert.</div>
+  <div class="notice"><strong>Version 2.4:</strong> Beim Teilen einer Anzeige werden übermittelte Titel- und Preisangaben jetzt automatisch erkannt. Ein bloßer Link liefert noch nicht zuverlässig alle Anzeigendaten.  Der manuelle Import ist jetzt eingeklappt und kann bei Bedarf geöffnet werden.  Suchaufträge lassen sich jetzt übersichtlich als Kategorie-Suche oder Artikel-/Modell-Suche anlegen. Beide Varianten nutzen dasselbe Formular. Eine automatische Hintergrundsuche ist noch nicht aktiviert.</div>
 
   <section class="card" id="searchJobsCard">
     <h2>🔍 Meine Suchaufträge</h2>
@@ -122,7 +122,7 @@
     </details>
   </section>
   <p class="muted" id="locationNote">Standort-Ziel für deine Suche: 16818 Kränzlin · Umkreis 20 km · alle Kategorien. Die App ist zunächst eine persönliche Sammel- und Rechenhilfe.</p>
-  <footer class="muted" style="text-align:center;padding:16px 0 8px;border-top:1px solid #e2e8f0;margin-top:18px">Schnäppchen-Scanner · Aktuelle Version <strong>2.3</strong></footer>
+  <footer class="muted" style="text-align:center;padding:16px 0 8px;border-top:1px solid #e2e8f0;margin-top:18px">Schnäppchen-Scanner · Aktuelle Version <strong>2.4</strong></footer>
 </main>
 <script>
 const $ = id => document.getElementById(id);
@@ -215,7 +215,26 @@ function toggleSearchJob(id){const j=searchJobs.find(x=>x.id===id);if(!j)return;
 function deleteSearchJob(id){if(confirm('Diesen Suchauftrag löschen?')){searchJobs=searchJobs.filter(x=>x.id!==id);saveSearchJobs()}}
 $('searchJobForm').addEventListener('submit',submitSearchJob);
 $('clearJobForm').onclick=clearJobForm;
-function receiveShare(){const p=new URLSearchParams(location.search);const sharedUrl=p.get('url')||'';const title=p.get('title')||p.get('text')||'';if(sharedUrl||title){setImportPanel(true);$('url').value=sharedUrl;const clean=title.replace(sharedUrl,'').trim();if(clean)$('title').value=clean.slice(0,140);autoMatchSearchJob();history.replaceState({},'',location.pathname);const duplicate=findDuplicateByUrl(sharedUrl);if(duplicate){alert('Diese Anzeige ist bereits in deinen Angeboten vorhanden. Der vorhandene Eintrag wird geöffnet.');editDeal(duplicate.id)}}}
+function parseSharedListingText(raw,sharedUrl=''){
+ let text=String(raw||'').replace(sharedUrl,' ').replace(/https?:\/\/\S+/gi,' ').replace(/[\r\n]+/g,' ').replace(/\s+/g,' ').trim();
+ const patterns=[/€\s*(\d{1,6}(?:[.,]\d{1,2})?)/i,/(\d{1,6}(?:[.,]\d{1,2})?)\s*(?:€|EUR)(?![A-Za-z])/i,/(?:Preis|VB|Festpreis)\s*:?\s*(\d{1,6}(?:[.,]\d{1,2})?)/i];
+ let price=null;
+ for(const re of patterns){const m=text.match(re);if(m){price=Number(m[1].replace(/\./g,'').replace(',','.'));if(Number.isFinite(price)&&price>0)break;price=null}}
+ const clean=text.replace(/(?:€\s*\d{1,6}(?:[.,]\d{1,2})?|\d{1,6}(?:[.,]\d{1,2})?\s*(?:€|EUR)|(?:Preis|VB|Festpreis)\s*:?\s*\d{1,6}(?:[.,]\d{1,2})?)/gi,' ').replace(/\b(?:VB|Festpreis|Preis)\b/gi,' ').replace(/\s+/g,' ').trim();
+ return {title:clean,price};
+}
+function receiveShare(){
+ const p=new URLSearchParams(location.search),sharedUrl=p.get('url')||'',sharedTitle=p.get('title')||'',sharedText=p.get('text')||'';
+ if(sharedUrl||sharedTitle||sharedText){
+  setImportPanel(true);$('url').value=sharedUrl;
+  const parsed=parseSharedListingText([sharedTitle,sharedText].filter(Boolean).join(' '),sharedUrl);
+  if(parsed.title)$('title').value=parsed.title.slice(0,140);
+  if(parsed.price!==null&&!$('buy').value)$('buy').value=parsed.price.toFixed(2);
+  autoMatchSearchJob();history.replaceState({},'',location.pathname);
+  const duplicate=findDuplicateByUrl(sharedUrl);
+  if(duplicate){alert('Diese Anzeige ist bereits in deinen Angeboten vorhanden. Der vorhandene Eintrag wird geöffnet.');editDeal(duplicate.id)}
+ }
+}
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 loadSettings();setSearchJobMode('category');showView('offers');receiveShare();render();renderSearchJobs();
 </script>
