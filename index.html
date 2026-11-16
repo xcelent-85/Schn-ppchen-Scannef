@@ -7,7 +7,7 @@
   <meta name="description" content="Persönlicher Schnäppchen-Scanner für Kleinanzeigen und eBay-Preisvergleiche.">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <title>Schnäppchen-Scanner · Version 1.8</title>
+  <title>Schnäppchen-Scanner · Version 1.9</title>
   <style>
     :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#172033;background:#f3f5f9}
     *{box-sizing:border-box}body{margin:0}.top{background:#172554;color:white;padding:24px max(18px,calc((100% - 920px)/2)) 26px}
@@ -73,6 +73,7 @@
       <div class="grid">
         <div class="wide"><label for="title">Artikel / Modell</label><input id="title" required placeholder="z. B. Makita DHP..."></div>
         <div class="wide"><label for="url">Kleinanzeigen-Link</label><input id="url" type="url" placeholder="https://www.kleinanzeigen.de/..."></div>
+        <div class="wide"><label for="dealSearchJob">Zugehöriger Suchauftrag (optional)</label><select id="dealSearchJob"><option value="">Kein Suchauftrag</option></select></div>
         <div><label for="buy">Angebotspreis (€)</label><input id="buy" type="number" min="0" step=".01" required placeholder="80"></div>
         <div><label for="ebay">eBay-Verkaufspreis (Median, €)</label><input id="ebay" type="number" min="0" step=".01" placeholder="145"></div>
         <div class="wide"><label for="soldPrices">Einzelne eBay-Verkaufspreise (€)</label><textarea id="soldPrices" placeholder="Zum Beispiel: 49,90; 55; 52,50; 60"></textarea><p id="medianInfo" class="muted">Mehrere Preise bitte durch Semikolon oder Zeilenumbruch trennen (z. B. 49,90; 55; 52,50).</p></div>
@@ -112,7 +113,7 @@
     </details>
   </section>
   <p class="muted" id="locationNote">Standort-Ziel für deine Suche: 16818 Kränzlin · Umkreis 20 km · alle Kategorien. Die App ist zunächst eine persönliche Sammel- und Rechenhilfe.</p>
-  <footer class="muted" style="text-align:center;padding:16px 0 8px;border-top:1px solid #e2e8f0;margin-top:18px">Schnäppchen-Scanner · Aktuelle Version <strong>1.8</strong></footer>
+  <footer class="muted" style="text-align:center;padding:16px 0 8px;border-top:1px solid #e2e8f0;margin-top:18px">Schnäppchen-Scanner · Aktuelle Version <strong>1.9</strong></footer>
 </main>
 <script>
 const $ = id => document.getElementById(id);
@@ -129,7 +130,7 @@ try{deals=JSON.parse(localStorage.getItem(KEY)||'[]')}catch(e){deals=[]}
 function persist(){localStorage.setItem(KEY,JSON.stringify(deals));render()}
 function saveSettings(){settings={goodProfit:Math.max(0,Number($('cfgGoodProfit').value)||0),goodMargin:Math.max(0,Number($('cfgGoodMargin').value)||0),midProfit:Math.max(0,Number($('cfgMidProfit').value)||0)};localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));$('settingsInfo').textContent='Einstellungen gespeichert. Die Bewertung aller Angebote wurde aktualisiert.';render()}
 function loadSettings(){ $('cfgGoodProfit').value=settings.goodProfit; $('cfgGoodMargin').value=settings.goodMargin; $('cfgMidProfit').value=settings.midProfit; }
-function rating(c,hasEbay){if(!hasEbay)return {label:'Noch keine Bewertung',cls:'mid'};if(c.net>=settings.goodProfit&&c.margin>=settings.goodMargin)return {label:'Schnäppchen',cls:'good'};if(c.net>=settings.midProfit)return {label:'Interessant',cls:'mid'};return {label:'Uninteressant',cls:'bad'}}
+function rating(c,hasEbay,deal){if(!hasEbay)return {label:'Noch keine Bewertung',cls:'mid'};const job=deal?.searchJobId?searchJobs.find(j=>j.id===deal.searchJobId):null;const minProfit=job?Number(job.minProfit)||0:settings.goodProfit;const minMargin=job?Number(job.minMargin)||0:settings.goodMargin;const midProfit=job?Number(job.minProfit)||0:settings.midProfit;if(c.net>=minProfit&&c.margin>=minMargin)return {label:'Schnäppchen',cls:'good'};if(c.net>=midProfit)return {label:'Interessant',cls:'mid'};return {label:'Uninteressant',cls:'bad'}}
 function euro(n){return new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'}).format(Number(n)||0)}
 function safe(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function calc(d){const ebay=Number(d.ebay)||0,buy=Number(d.buy)||0,ship=Number(d.ship)||0,fees=Number(d.fees)||0;const net=ebay-(ebay*fees/100)-buy-ship;return {net,margin:buy?net/buy*100:0}}
@@ -142,7 +143,7 @@ function render(){
  const sortOrder=$('sortOrder').value;
  const found=deals.filter(d=>{
   const textMatch=(d.title+' '+d.notes).toLowerCase().includes(q);
-  const c=calc(d),r=rating(c,!!d.ebay);
+  const c=calc(d),r=rating(c,!!d.ebay,d);
   const ratingMatch=ratingFilter==='all'||r.cls===ratingFilter;
   return textMatch&&ratingMatch;
  });
@@ -156,11 +157,11 @@ function render(){
   return sortOrder==='profit'?cb.net-ca.net:cb.margin-ca.margin;
  });
  if(!found.length){$('list').innerHTML='<div class="empty">Noch keine Angebote gespeichert. Teile eine Anzeige mit der App oder erfasse sie oben.</div>';return}
- $('list').innerHTML=found.map(d=>{const c=calc(d);const r=rating(c,!!d.ebay);return `<article class="item"><h3>${safe(d.title)}</h3><span class="status ${r.cls}">${r.label}</span><div class="stats"><span>Kleinanzeigen: <b>${euro(d.buy)}</b></span><span>eBay-Median: <b>${d.ebay?euro(d.ebay):'noch offen'}</b></span></div><div class="stats"><span>Geschätzter Gewinn: <b class="${c.net>=0?'profit':'loss'}">${d.ebay?euro(c.net):'noch nicht berechnet'}</b></span><span>Rendite: <b>${d.ebay?c.margin.toFixed(1).replace('.',',')+' %':'–'}</b></span></div>${d.notes?`<p class="muted">${safe(d.notes)}</p>`:''}${d.url?`<a href="${safe(d.url)}" target="_blank" rel="noopener">Kleinanzeigen-Anzeige öffnen ↗</a>`:''}<div class="actions"><button class="secondary" onclick="editDeal('${d.id}')">Bearbeiten</button><button class="danger" onclick="deleteDeal('${d.id}')">Löschen</button></div></article>`}).join('');
+ $('list').innerHTML=found.map(d=>{const c=calc(d);const r=rating(c,!!d.ebay,d);const linkedJob=searchJobs.find(j=>j.id===d.searchJobId);return `<article class="item"><h3>${safe(d.title)}</h3><span class="status ${r.cls}">${r.label}</span><p class="muted">Suchauftrag: ${linkedJob?safe(linkedJob.name):'Keiner zugeordnet'}</p><div class="stats"><span>Kleinanzeigen: <b>${euro(d.buy)}</b></span><span>eBay-Median: <b>${d.ebay?euro(d.ebay):'noch offen'}</b></span></div><div class="stats"><span>Geschätzter Gewinn: <b class="${c.net>=0?'profit':'loss'}">${d.ebay?euro(c.net):'noch nicht berechnet'}</b></span><span>Rendite: <b>${d.ebay?c.margin.toFixed(1).replace('.',',')+' %':'–'}</b></span></div>${d.notes?`<p class="muted">${safe(d.notes)}</p>`:''}${d.url?`<a href="${safe(d.url)}" target="_blank" rel="noopener">Kleinanzeigen-Anzeige öffnen ↗</a>`:''}<div class="actions"><button class="secondary" onclick="editDeal('${d.id}')">Bearbeiten</button><button class="danger" onclick="deleteDeal('${d.id}')">Löschen</button></div></article>`}).join('');
 }
 function clearForm(){ $('dealForm').reset();$('ship').value='0';$('fees').value='0';$('dealForm').dataset.edit=''}
-function addFromForm(e){e.preventDefault();const id=$('dealForm').dataset.edit||crypto.randomUUID();const old=deals.find(x=>x.id===id);const d={id,title:$('title').value.trim(),url:$('url').value.trim(),buy:$('buy').value,ebay:$('ebay').value,ship:$('ship').value,fees:$('fees').value,soldPrices:$('soldPrices').value,notes:$('notes').value,created:old?.created||new Date().toISOString()};const i=deals.findIndex(x=>x.id===id);if(i>=0)deals[i]=d;else deals.unshift(d);persist();clearForm()}
-function editDeal(id){const d=deals.find(x=>x.id===id);if(!d)return;for(const k of ['title','url','buy','ebay','ship','fees','soldPrices','notes'])$(k).value=d[k]??'';updateMedian();$('dealForm').dataset.edit=id;window.scrollTo({top:0,behavior:'smooth'})}
+function addFromForm(e){e.preventDefault();const id=$('dealForm').dataset.edit||crypto.randomUUID();const old=deals.find(x=>x.id===id);const d={id,title:$('title').value.trim(),url:$('url').value.trim(),buy:$('buy').value,ebay:$('ebay').value,ship:$('ship').value,fees:$('fees').value,soldPrices:$('soldPrices').value,notes:$('notes').value,searchJobId:$('dealSearchJob').value,created:old?.created||new Date().toISOString()};const i=deals.findIndex(x=>x.id===id);if(i>=0)deals[i]=d;else deals.unshift(d);persist();clearForm()}
+function editDeal(id){const d=deals.find(x=>x.id===id);if(!d)return;for(const k of ['title','url','buy','ebay','ship','fees','soldPrices','notes'])$(k).value=d[k]??'';$('dealSearchJob').value=d.searchJobId||'';updateMedian();$('dealForm').dataset.edit=id;window.scrollTo({top:0,behavior:'smooth'})}
 function deleteDeal(id){if(confirm('Dieses Angebot löschen?')){deals=deals.filter(x=>x.id!==id);persist()}}
 function showView(view){
  const settingsOpen=view==='settings';
@@ -184,6 +185,9 @@ $('clearAll').onclick=()=>{if(confirm('Wirklich alle lokal gespeicherten Angebot
 function saveSearchJobs(){localStorage.setItem(SEARCH_JOBS_KEY,JSON.stringify(searchJobs));renderSearchJobs()}
 function clearJobForm(){ $('searchJobForm').reset();$('jobLocation').value='16818 Kränzlin';$('jobRadius').value=20;$('jobCategory').value='Alle Kategorien';$('jobMinProfit').value=30;$('jobMinMargin').value=25;$('searchJobForm').dataset.edit='';$('saveJobButton').textContent='Suchauftrag speichern';$('jobFormInfo').textContent='Du kannst beliebig viele Suchaufträge mit unterschiedlichen Grenzwerten anlegen.'}
 function renderSearchJobs(){
+ const selected=$('dealSearchJob').value;
+ $('dealSearchJob').innerHTML='<option value="">Kein Suchauftrag</option>'+searchJobs.map(j=>`<option value="${safe(j.id)}">${safe(j.name)}</option>`).join('');
+ $('dealSearchJob').value=searchJobs.some(j=>j.id===selected)?selected:'';
  const box=$('searchJobsList');
  if(!searchJobs.length){box.innerHTML='<div class="empty">Noch keine Suchaufträge angelegt.</div>';return}
  box.innerHTML=searchJobs.map(j=>`<article class="item"><h3>${safe(j.name)}</h3><div class="stats"><span>Suchbegriffe: <b>${j.keywords?safe(j.keywords):'Alle Anzeigen der Kategorie'}</b></span><span>Kategorie: <b>${safe(j.category)}</b></span></div><div class="stats"><span>Standort: <b>${safe(j.location)}</b> · ${Number(j.radius)||20} km</span><span>Max. Kaufpreis: <b>${j.maxPrice?euro(j.maxPrice):'nicht begrenzt'}</b></span></div><div class="stats"><span>Mindestgewinn: <b>${euro(j.minProfit)}</b></span><span>Mindestrendite: <b>${Number(j.minMargin)||0} %</b></span></div><span class="status ${j.active===false?'bad':'good'}">${j.active===false?'Pausiert':'Aktiv · lokal gespeichert'}</span><div class="actions"><button class="secondary" type="button" onclick="editSearchJob('${j.id}')">Bearbeiten</button><button class="secondary" type="button" onclick="toggleSearchJob('${j.id}')">${j.active===false?'Aktivieren':'Pausieren'}</button><button class="danger" type="button" onclick="deleteSearchJob('${j.id}')">Löschen</button></div></article>`).join('');
