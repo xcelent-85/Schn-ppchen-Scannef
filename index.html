@@ -219,12 +219,12 @@ $('clearJobForm').onclick=clearJobForm;
 function titleFromKleinanzeigenUrl(raw){
  try{
   const u=new URL(String(raw||'').trim());
-  if(!/(^|\\.)kleinanzeigen\\.de$/i.test(u.hostname))return '';
-  const m=u.pathname.match(/\\/s-anzeige\\/([^/]+)\\/(?:\\d{6,})(?:-|\\/|$)/i);
+  if(!/(^|\.)kleinanzeigen\.de$/i.test(u.hostname))return '';
+  const m=u.pathname.match(/\/s-anzeige\/([^/]+)\/(?:\d{6,})(?:-|\/|$)/i);
   if(!m)return '';
   let slug=m[1];
   try{slug=decodeURIComponent(slug)}catch(e){}
-  return slug.replace(/[-_]+/g,' ').replace(/\\s+/g,' ').trim();
+  return slug.replace(/[-_]+/g,' ').replace(/\s+/g,' ').trim();
  }catch(e){return ''}
 }
 function fillTitleFromAdUrl(){
