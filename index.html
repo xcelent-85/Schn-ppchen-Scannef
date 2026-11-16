@@ -250,23 +250,23 @@ function parseSharedListingText(raw,sharedUrl=''){
  return {title:clean,price};
 }
 function analyzeCopiedListingText(raw){
- const source=String(raw||'').replace(/\\r/g,'');
+ const source=String(raw||'').replace(/\r/g,'');
  if(!source.trim())return {price:null,description:'',message:'Bitte zuerst den kopierten Seitentext einfügen.'};
- const lines=source.split('\\n').map(x=>x.trim()).filter(Boolean);
- const pricePatterns=[/(?:Preis|VB|Festpreis|zu verschenken)\\s*:?\\s*(\\d{1,6}(?:[.,]\\d{1,2})?)\\s*(?:€|EUR)?/i,/(\\d{1,6}(?:[.,]\\d{1,2})?)\\s*(?:€|EUR)\\b/i,/€\\s*(\\d{1,6}(?:[.,]\\d{1,2})?)/i];
+ const lines=source.split('\n').map(x=>x.trim()).filter(Boolean);
+ const pricePatterns=[/(?:Preis|VB|Festpreis|zu verschenken)\s*:?\s*(\d{1,6}(?:[.,]\d{1,2})?)\s*(?:€|EUR)?/i,/(\d{1,6}(?:[.,]\d{1,2})?)\s*(?:€|EUR)\b/i,/€\s*(\d{1,6}(?:[.,]\d{1,2})?)/i];
  let price=null,priceLine=-1;
  for(let i=0;i<lines.length&&price===null;i++){
   const line=lines[i];
-  if(/\\b(?:PLZ|km|kilometer|telefon|anzeigen-ID|aufgerufen|eingestellt am)\\b/i.test(line))continue;
-  for(const re of pricePatterns){const m=line.match(re);if(m){const n=Number(m[1].replace(/\\./g,'').replace(',','.'));if(Number.isFinite(n)&&n>0&&n<1000000){price=n;priceLine=i;break}}}
+  if(/\b(?:PLZ|km|kilometer|telefon|anzeigen-ID|aufgerufen|eingestellt am)\b/i.test(line))continue;
+  for(const re of pricePatterns){const m=line.match(re);if(m){const n=Number(m[1].replace(/\./g,'').replace(',','.'));if(Number.isFinite(n)&&n>0&&n<1000000){price=n;priceLine=i;break}}}
  }
  let description='';
- const descIndex=lines.findIndex(x=>/^beschreibung\\s*:? ?$/i.test(x)||/^beschreibung\\s*$/i.test(x));
- if(descIndex>=0)description=lines.slice(descIndex+1).filter(x=>!/^mehr anzeigen$/i.test(x)).join('\\n').trim();
+ const descIndex=lines.findIndex(x=>/^beschreibung\s*:?\s*$/i.test(x));
+ if(descIndex>=0)description=lines.slice(descIndex+1).filter(x=>!/^mehr anzeigen$/i.test(x)).join('\n').trim();
  else{
   const title=$('title').value.trim().toLowerCase();
   const candidates=lines.filter((line,i)=>i!==priceLine&&!/^beschreibung$/i.test(line)&&!/^details$/i.test(line)&&!/^nachricht$/i.test(line)&&!/^anzeigen-ID/i.test(line)&&!/^zuletzt online/i.test(line));
-  description=candidates.filter(line=>!title||line.toLowerCase()!==title).slice(0,30).join('\\n').trim();
+  description=candidates.filter(line=>!title||line.toLowerCase()!==title).slice(0,30).join('\n').trim();
  }
  return {price,description:description.slice(0,4000),message:price!==null?'Kaufpreis erkannt. Bitte kurz prüfen.':'Kein eindeutiger Kaufpreis gefunden. Bitte Preisfeld kontrollieren.'};
 }
