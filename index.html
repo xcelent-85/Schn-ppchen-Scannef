@@ -7,7 +7,7 @@
   <meta name="description" content="Persönlicher Schnäppchen-Scanner für Kleinanzeigen und eBay-Preisvergleiche.">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <title>Schnäppchen-Scanner · Version 1.9</title>
+  <title>Schnäppchen-Scanner · Version 2.0</title>
   <style>
     :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#172033;background:#f3f5f9}
     *{box-sizing:border-box}body{margin:0}.top{background:#172554;color:white;padding:24px max(18px,calc((100% - 920px)/2)) 26px}
@@ -45,7 +45,7 @@
     <button type="button" id="navSettings" class="secondary" aria-current="false">⚙️ Einstellungen</button>
   </nav>
   <div id="offersView">
-  <div class="notice"><strong>Erste Version:</strong> Teile eine Kleinanzeigen-Anzeige über „Teilen“ mit dieser App oder füge den Link ein. Den eBay-Verkaufspreis trägst du zunächst anhand tatsächlich verkaufter, vergleichbarer Artikel ein. Über die neue eBay-Schaltfläche öffnest du passende tatsächlich verkaufte Angebote der letzten 90 Tage. Trage mehrere Verkaufspreise ein; die App berechnet daraus automatisch den Median. Die App ruft noch keine Marktplatzdaten automatisch ab. In der Angebotsliste kannst du jetzt zusätzlich nach der automatischen Bewertung filtern.</div>
+  <div class="notice"><strong>Version 2.0:</strong> Teile eine Kleinanzeigen-Anzeige über „Teilen“ mit dieser App. Bereits gespeicherte Anzeigen werden anhand ihres Links erkannt, damit keine Dubletten entstehen. Wenn der Titel eindeutig zu einem aktiven Suchauftrag passt, wird dieser automatisch zugeordnet. eBay-Verkaufspreise trägst du weiterhin anhand tatsächlich verkaufter, vergleichbarer Artikel ein; mehrere Preise ergeben automatisch den Median. Eine automatische Marktplatz- oder Hintergrundsuche ist noch nicht aktiviert.</div>
 
   <section class="card" id="searchJobsCard">
     <h2>🔍 Meine Suchaufträge</h2>
@@ -113,7 +113,7 @@
     </details>
   </section>
   <p class="muted" id="locationNote">Standort-Ziel für deine Suche: 16818 Kränzlin · Umkreis 20 km · alle Kategorien. Die App ist zunächst eine persönliche Sammel- und Rechenhilfe.</p>
-  <footer class="muted" style="text-align:center;padding:16px 0 8px;border-top:1px solid #e2e8f0;margin-top:18px">Schnäppchen-Scanner · Aktuelle Version <strong>1.9</strong></footer>
+  <footer class="muted" style="text-align:center;padding:16px 0 8px;border-top:1px solid #e2e8f0;margin-top:18px">Schnäppchen-Scanner · Aktuelle Version <strong>2.0</strong></footer>
 </main>
 <script>
 const $ = id => document.getElementById(id);
@@ -160,7 +160,10 @@ function render(){
  $('list').innerHTML=found.map(d=>{const c=calc(d);const r=rating(c,!!d.ebay,d);const linkedJob=searchJobs.find(j=>j.id===d.searchJobId);return `<article class="item"><h3>${safe(d.title)}</h3><span class="status ${r.cls}">${r.label}</span><p class="muted">Suchauftrag: ${linkedJob?safe(linkedJob.name):'Keiner zugeordnet'}</p><div class="stats"><span>Kleinanzeigen: <b>${euro(d.buy)}</b></span><span>eBay-Median: <b>${d.ebay?euro(d.ebay):'noch offen'}</b></span></div><div class="stats"><span>Geschätzter Gewinn: <b class="${c.net>=0?'profit':'loss'}">${d.ebay?euro(c.net):'noch nicht berechnet'}</b></span><span>Rendite: <b>${d.ebay?c.margin.toFixed(1).replace('.',',')+' %':'–'}</b></span></div>${d.notes?`<p class="muted">${safe(d.notes)}</p>`:''}${d.url?`<a href="${safe(d.url)}" target="_blank" rel="noopener">Kleinanzeigen-Anzeige öffnen ↗</a>`:''}<div class="actions"><button class="secondary" onclick="editDeal('${d.id}')">Bearbeiten</button><button class="danger" onclick="deleteDeal('${d.id}')">Löschen</button></div></article>`}).join('');
 }
 function clearForm(){ $('dealForm').reset();$('ship').value='0';$('fees').value='0';$('dealForm').dataset.edit=''}
-function addFromForm(e){e.preventDefault();const id=$('dealForm').dataset.edit||crypto.randomUUID();const old=deals.find(x=>x.id===id);const d={id,title:$('title').value.trim(),url:$('url').value.trim(),buy:$('buy').value,ebay:$('ebay').value,ship:$('ship').value,fees:$('fees').value,soldPrices:$('soldPrices').value,notes:$('notes').value,searchJobId:$('dealSearchJob').value,created:old?.created||new Date().toISOString()};const i=deals.findIndex(x=>x.id===id);if(i>=0)deals[i]=d;else deals.unshift(d);persist();clearForm()}
+function normalizeAdUrl(value){try{const u=new URL(String(value||''));u.hash='';u.search='';return u.href.replace(/\/$/,'').toLowerCase()}catch(e){return String(value||'').trim().replace(/[?#].*$/,'').replace(/\/$/,'').toLowerCase()}}
+function findDuplicateByUrl(value,excludeId=''){const key=normalizeAdUrl(value);if(!key)return null;return deals.find(d=>d.id!==excludeId&&normalizeAdUrl(d.url)===key)||null}
+function autoMatchSearchJob(){const title=$('title').value.trim().toLowerCase();if(!title)return;const matches=searchJobs.filter(j=>j.active!==false&&j.keywords&&title.includes(j.keywords.trim().toLowerCase()));if(matches.length===1)$('dealSearchJob').value=matches[0].id}
+function addFromForm(e){e.preventDefault();const editingId=$('dealForm').dataset.edit||'';const duplicate=findDuplicateByUrl($('url').value,editingId);if(duplicate){alert('Diese Kleinanzeigen-Anzeige ist bereits gespeichert. Der vorhandene Eintrag wird geöffnet, statt eine Dublette anzulegen.');editDeal(duplicate.id);return}const id=editingId||crypto.randomUUID();const old=deals.find(x=>x.id===id);const d={id,title:$('title').value.trim(),url:$('url').value.trim(),buy:$('buy').value,ebay:$('ebay').value,ship:$('ship').value,fees:$('fees').value,soldPrices:$('soldPrices').value,notes:$('notes').value,searchJobId:$('dealSearchJob').value,created:old?.created||new Date().toISOString()};const i=deals.findIndex(x=>x.id===id);if(i>=0)deals[i]=d;else deals.unshift(d);persist();clearForm()}
 function editDeal(id){const d=deals.find(x=>x.id===id);if(!d)return;for(const k of ['title','url','buy','ebay','ship','fees','soldPrices','notes'])$(k).value=d[k]??'';$('dealSearchJob').value=d.searchJobId||'';updateMedian();$('dealForm').dataset.edit=id;window.scrollTo({top:0,behavior:'smooth'})}
 function deleteDeal(id){if(confirm('Dieses Angebot löschen?')){deals=deals.filter(x=>x.id!==id);persist()}}
 function showView(view){
@@ -176,7 +179,7 @@ function showView(view){
 }
 $('navOffers').onclick=()=>showView('offers');
 $('navSettings').onclick=()=>showView('settings');
-$('dealForm').addEventListener('submit',addFromForm);$('reset').onclick=clearForm;$('filter').oninput=render;$('ratingFilter').onchange=render;$('sortOrder').onchange=render;$('soldPrices').addEventListener('input',updateMedian);
+$('dealForm').addEventListener('submit',addFromForm);$('title').addEventListener('input',autoMatchSearchJob);$('reset').onclick=clearForm;$('filter').oninput=render;$('ratingFilter').onchange=render;$('sortOrder').onchange=render;$('soldPrices').addEventListener('input',updateMedian);
 for(const id of ['cfgGoodProfit','cfgGoodMargin','cfgMidProfit'])$(id).addEventListener('change',saveSettings);
 $('resetSettings').onclick=()=>{settings={...DEFAULT_SETTINGS};loadSettings();localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));$('settingsInfo').textContent='Standardeinstellungen wiederhergestellt.';render()};
 $('ebaySearch').onclick=()=>{const q=$('title').value.trim();if(!q){alert('Bitte zuerst den Artikel oder das genaue Modell eintragen.');$('title').focus();return}const url='https://www.ebay.de/sch/i.html?_nkw='+encodeURIComponent(q)+'&LH_Sold=1&LH_Complete=1';window.open(url,'_blank','noopener')};
@@ -198,7 +201,7 @@ function toggleSearchJob(id){const j=searchJobs.find(x=>x.id===id);if(!j)return;
 function deleteSearchJob(id){if(confirm('Diesen Suchauftrag löschen?')){searchJobs=searchJobs.filter(x=>x.id!==id);saveSearchJobs()}}
 $('searchJobForm').addEventListener('submit',submitSearchJob);
 $('clearJobForm').onclick=clearJobForm;
-function receiveShare(){const p=new URLSearchParams(location.search);const sharedUrl=p.get('url')||'';const title=p.get('title')||p.get('text')||'';if(sharedUrl||title){$('url').value=sharedUrl;const clean=title.replace(sharedUrl,'').trim();if(clean)$('title').value=clean.slice(0,140);history.replaceState({},'',location.pathname)}}
+function receiveShare(){const p=new URLSearchParams(location.search);const sharedUrl=p.get('url')||'';const title=p.get('title')||p.get('text')||'';if(sharedUrl||title){$('url').value=sharedUrl;const clean=title.replace(sharedUrl,'').trim();if(clean)$('title').value=clean.slice(0,140);autoMatchSearchJob();history.replaceState({},'',location.pathname);const duplicate=findDuplicateByUrl(sharedUrl);if(duplicate){alert('Diese Anzeige ist bereits in deinen Angeboten vorhanden. Der vorhandene Eintrag wird geöffnet.');editDeal(duplicate.id)}}}
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 loadSettings();showView('offers');receiveShare();render();renderSearchJobs();
 </script>
