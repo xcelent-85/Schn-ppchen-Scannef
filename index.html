@@ -7,7 +7,7 @@
   <meta name="description" content="Persönlicher Schnäppchen-Scanner für Kleinanzeigen und eBay-Preisvergleiche.">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <title>Schnäppchen-Scanner · Version 2.6</title>
+  <title>Schnäppchen-Scanner · Version 2.7</title>
   <style>
     :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#172033;background:#f3f5f9}
     *{box-sizing:border-box}body{margin:0}.top{background:#172554;color:white;padding:24px max(18px,calc((100% - 920px)/2)) 26px}
@@ -78,6 +78,7 @@
     <p class="muted">Hier kannst du eine einzelne, bereits gefundene Kleinanzeigen-Anzeige in „Meine Angebote“ übernehmen. Das ist optional und kein zweiter Suchauftrag.</p>
     <form id="dealForm">
       <div class="grid">
+        <div class="wide"><label for="listingText">Kopierten Kleinanzeigen-Seitentext hier einfügen</label><textarea id="listingText" rows="5" placeholder="Auf der Kleinanzeigen-Anzeige Strg + A, dann Strg + C drücken und den Text hier mit Strg + V einfügen."></textarea><div class="actions"><button type="button" class="secondary" id="analyzeListingText">Titel, Preis und Beschreibung erkennen</button><span class="muted" id="listingParseInfo">Der Scanner versucht, den Preis und die Beschreibung aus dem kopierten Seitentext zu übernehmen.</span></div></div>
         <div class="wide"><label for="title">Artikel / Modell</label><input id="title" required placeholder="z. B. Makita DHP..."></div>
         <div class="wide"><label for="url">Kleinanzeigen-Link</label><input id="url" type="url" placeholder="https://www.kleinanzeigen.de/..."></div>
         <div class="wide"><label for="ebayQuery">eBay-Suchbegriff (Vorschlag – bitte prüfen)</label><input id="ebayQuery" type="text" placeholder="Wird aus Artikel / Modell vorgeschlagen"><p class="muted">Der Scanner schlägt eine bereinigte Suche vor. Du kannst Marke und Modell hier jederzeit anpassen.</p></div>
@@ -123,7 +124,7 @@
     </details>
   </section>
   <p class="muted" id="locationNote">Standort-Ziel für deine Suche: 16818 Kränzlin · Umkreis 20 km · alle Kategorien. Die App ist zunächst eine persönliche Sammel- und Rechenhilfe.</p>
-  <footer class="muted" style="text-align:center;padding:16px 0 8px;border-top:1px solid #e2e8f0;margin-top:18px">Schnäppchen-Scanner · Aktuelle Version <strong>2.6</strong></footer>
+  <footer class="muted" style="text-align:center;padding:16px 0 8px;border-top:1px solid #e2e8f0;margin-top:18px">Schnäppchen-Scanner · Aktuelle Version <strong>2.7</strong></footer>
 </main>
 <script>
 const $ = id => document.getElementById(id);
@@ -181,7 +182,7 @@ $('navOffers').onclick=()=>showView('offers');
 $('toggleImportForm').onclick=()=>setImportPanel($('importFormPanel').hidden);
 $('hideImportForm').onclick=()=>setImportPanel(false);
 $('navSettings').onclick=()=>showView('settings');
-$('dealForm').addEventListener('submit',addFromForm);$('url').addEventListener('input',fillTitleFromAdUrl);$('url').addEventListener('change',fillTitleFromAdUrl);$('title').addEventListener('input',()=>{autoMatchSearchJob();if(!$('ebayQuery').dataset.manual)$('ebayQuery').value=suggestEbayQuery($('title').value)});$('ebayQuery').addEventListener('input',()=>{$('ebayQuery').dataset.manual='1'});$('reset').onclick=clearForm;$('filter').oninput=render;$('ratingFilter').onchange=render;$('reviewFilter').onchange=render;$('profileFilter').onchange=render;$('priceFilter').onchange=render;$('sortOrder').onchange=render;$('soldPrices').addEventListener('input',updateMedian);
+$('dealForm').addEventListener('submit',addFromForm);$('analyzeListingText').addEventListener('click',applyCopiedListingText);$('listingText').addEventListener('paste',()=>setTimeout(applyCopiedListingText,50));$('url').addEventListener('input',fillTitleFromAdUrl);$('url').addEventListener('change',fillTitleFromAdUrl);$('title').addEventListener('input',()=>{autoMatchSearchJob();if(!$('ebayQuery').dataset.manual)$('ebayQuery').value=suggestEbayQuery($('title').value)});$('ebayQuery').addEventListener('input',()=>{$('ebayQuery').dataset.manual='1'});$('reset').onclick=clearForm;$('filter').oninput=render;$('ratingFilter').onchange=render;$('reviewFilter').onchange=render;$('profileFilter').onchange=render;$('priceFilter').onchange=render;$('sortOrder').onchange=render;$('soldPrices').addEventListener('input',updateMedian);
 for(const id of ['cfgGoodProfit','cfgGoodMargin','cfgMidProfit'])$(id).addEventListener('change',saveSettings);
 $('resetSettings').onclick=()=>{settings={...DEFAULT_SETTINGS};loadSettings();localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));$('settingsInfo').textContent='Standardeinstellungen wiederhergestellt.';render()};
 $('ebaySearch').onclick=()=>{const q=$('ebayQuery').value.trim();if(!q){alert('Bitte zuerst einen eBay-Suchbegriff eintragen.');$('ebayQuery').focus();return}const url='https://www.ebay.de/sch/i.html?_nkw='+encodeURIComponent(q)+'&LH_Sold=1&LH_Complete=1';window.open(url,'_blank','noopener')};
@@ -247,6 +248,35 @@ function parseSharedListingText(raw,sharedUrl=''){
  for(const re of patterns){const m=text.match(re);if(m){price=Number(m[1].replace(/\./g,'').replace(',','.'));if(Number.isFinite(price)&&price>0)break;price=null}}
  const clean=text.replace(/(?:€\s*\d{1,6}(?:[.,]\d{1,2})?|\d{1,6}(?:[.,]\d{1,2})?\s*(?:€|EUR)|(?:Preis|VB|Festpreis)\s*:?\s*\d{1,6}(?:[.,]\d{1,2})?)/gi,' ').replace(/\b(?:VB|Festpreis|Preis)\b/gi,' ').replace(/\s+/g,' ').trim();
  return {title:clean,price};
+}
+function analyzeCopiedListingText(raw){
+ const source=String(raw||'').replace(/\\r/g,'');
+ if(!source.trim())return {price:null,description:'',message:'Bitte zuerst den kopierten Seitentext einfügen.'};
+ const lines=source.split('\\n').map(x=>x.trim()).filter(Boolean);
+ const pricePatterns=[/(?:Preis|VB|Festpreis|zu verschenken)\\s*:?\\s*(\\d{1,6}(?:[.,]\\d{1,2})?)\\s*(?:€|EUR)?/i,/(\\d{1,6}(?:[.,]\\d{1,2})?)\\s*(?:€|EUR)\\b/i,/€\\s*(\\d{1,6}(?:[.,]\\d{1,2})?)/i];
+ let price=null,priceLine=-1;
+ for(let i=0;i<lines.length&&price===null;i++){
+  const line=lines[i];
+  if(/\\b(?:PLZ|km|kilometer|telefon|anzeigen-ID|aufgerufen|eingestellt am)\\b/i.test(line))continue;
+  for(const re of pricePatterns){const m=line.match(re);if(m){const n=Number(m[1].replace(/\\./g,'').replace(',','.'));if(Number.isFinite(n)&&n>0&&n<1000000){price=n;priceLine=i;break}}}
+ }
+ let description='';
+ const descIndex=lines.findIndex(x=>/^beschreibung\\s*:? ?$/i.test(x)||/^beschreibung\\s*$/i.test(x));
+ if(descIndex>=0)description=lines.slice(descIndex+1).filter(x=>!/^mehr anzeigen$/i.test(x)).join('\\n').trim();
+ else{
+  const title=$('title').value.trim().toLowerCase();
+  const candidates=lines.filter((line,i)=>i!==priceLine&&!/^beschreibung$/i.test(line)&&!/^details$/i.test(line)&&!/^nachricht$/i.test(line)&&!/^anzeigen-ID/i.test(line)&&!/^zuletzt online/i.test(line));
+  description=candidates.filter(line=>!title||line.toLowerCase()!==title).slice(0,30).join('\\n').trim();
+ }
+ return {price,description:description.slice(0,4000),message:price!==null?'Kaufpreis erkannt. Bitte kurz prüfen.':'Kein eindeutiger Kaufpreis gefunden. Bitte Preisfeld kontrollieren.'};
+}
+function applyCopiedListingText(){
+ const parsed=analyzeCopiedListingText($('listingText').value);
+ if(parsed.price!==null)$('buy').value=parsed.price.toFixed(2);
+ if(parsed.description)$('notes').value=parsed.description;
+ if(!$('title').value.trim())fillTitleFromAdUrl();
+ $('listingParseInfo').textContent=parsed.message+(parsed.description?' Beschreibung wurde in „Zustand / Hinweise“ übernommen.':'');
+ if(parsed.price===null)$('buy').focus();
 }
 function receiveShare(){
  const p=new URLSearchParams(location.search),sharedUrl=p.get('url')||'',sharedTitle=p.get('title')||'',sharedText=p.get('text')||'';
