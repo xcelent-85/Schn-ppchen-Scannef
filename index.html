@@ -7,7 +7,7 @@
   <meta name="description" content="Persönlicher Schnäppchen-Scanner für Kleinanzeigen und eBay-Preisvergleiche.">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <title>Schnäppchen-Scanner · Version 1.6</title>
+  <title>Schnäppchen-Scanner · Version 1.7</title>
   <style>
     :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#172033;background:#f3f5f9}
     *{box-sizing:border-box}body{margin:0}.top{background:#172554;color:white;padding:24px max(18px,calc((100% - 920px)/2)) 26px}
@@ -80,7 +80,7 @@
   </section>
 
   <section class="card">
-    <div class="toolbar"><h2 style="margin:0;flex:1">Meine Angebote</h2><input id="filter" placeholder="Liste durchsuchen ..."><select id="ratingFilter" aria-label="Angebote nach Bewertung filtern" style="max-width:210px"><option value="all">Alle Angebote</option><option value="good">Nur Schnäppchen</option><option value="mid">Interessante Angebote</option><option value="bad">Uninteressante Angebote</option></select></div>
+    <div class="toolbar"><h2 style="margin:0;flex:1">Meine Angebote</h2><input id="filter" placeholder="Liste durchsuchen ..."><select id="ratingFilter" aria-label="Angebote nach Bewertung filtern" style="max-width:210px"><option value="all">Alle Angebote</option><option value="good">Nur Schnäppchen</option><option value="mid">Interessante Angebote</option><option value="bad">Uninteressante Angebote</option></select><select id="sortOrder" aria-label="Angebote sortieren" style="max-width:220px"><option value="newest">Neueste zuerst</option><option value="profit">Höchster Gewinn zuerst</option><option value="margin">Höchste Rendite zuerst</option><option value="buy">Niedrigster Kaufpreis zuerst</option></select></div>
     <div id="list" style="margin-top:14px"></div>
   </section>
 
@@ -115,11 +115,21 @@ function updateMedian(){const values=parseSoldPrices($('soldPrices').value);cons
 function render(){
  const q=$('filter').value.toLowerCase();
  const ratingFilter=$('ratingFilter').value;
+ const sortOrder=$('sortOrder').value;
  const found=deals.filter(d=>{
   const textMatch=(d.title+' '+d.notes).toLowerCase().includes(q);
   const c=calc(d),r=rating(c,!!d.ebay);
   const ratingMatch=ratingFilter==='all'||r.cls===ratingFilter;
   return textMatch&&ratingMatch;
+ });
+ found.sort((a,b)=>{
+  if(sortOrder==='newest')return new Date(b.created||0)-new Date(a.created||0);
+  if(sortOrder==='buy')return (Number(a.buy)||0)-(Number(b.buy)||0);
+  const aHas=Number(a.ebay)>0,bHas=Number(b.ebay)>0;
+  if(aHas!==bHas)return aHas?-1:1;
+  if(!aHas&&!bHas)return new Date(b.created||0)-new Date(a.created||0);
+  const ca=calc(a),cb=calc(b);
+  return sortOrder==='profit'?cb.net-ca.net:cb.margin-ca.margin;
  });
  if(!found.length){$('list').innerHTML='<div class="empty">Noch keine Angebote gespeichert. Teile eine Anzeige mit der App oder erfasse sie oben.</div>';return}
  $('list').innerHTML=found.map(d=>{const c=calc(d);const r=rating(c,!!d.ebay);return `<article class="item"><h3>${safe(d.title)}</h3><span class="status ${r.cls}">${r.label}</span><div class="stats"><span>Kleinanzeigen: <b>${euro(d.buy)}</b></span><span>eBay-Median: <b>${d.ebay?euro(d.ebay):'noch offen'}</b></span></div><div class="stats"><span>Geschätzter Gewinn: <b class="${c.net>=0?'profit':'loss'}">${d.ebay?euro(c.net):'noch nicht berechnet'}</b></span><span>Rendite: <b>${d.ebay?c.margin.toFixed(1).replace('.',',')+' %':'–'}</b></span></div>${d.notes?`<p class="muted">${safe(d.notes)}</p>`:''}${d.url?`<a href="${safe(d.url)}" target="_blank" rel="noopener">Kleinanzeigen-Anzeige öffnen ↗</a>`:''}<div class="actions"><button class="secondary" onclick="editDeal('${d.id}')">Bearbeiten</button><button class="danger" onclick="deleteDeal('${d.id}')">Löschen</button></div></article>`}).join('');
@@ -141,7 +151,7 @@ function showView(view){
 }
 $('navOffers').onclick=()=>showView('offers');
 $('navSettings').onclick=()=>showView('settings');
-$('dealForm').addEventListener('submit',addFromForm);$('reset').onclick=clearForm;$('filter').oninput=render;$('ratingFilter').onchange=render;$('soldPrices').addEventListener('input',updateMedian);
+$('dealForm').addEventListener('submit',addFromForm);$('reset').onclick=clearForm;$('filter').oninput=render;$('ratingFilter').onchange=render;$('sortOrder').onchange=render;$('soldPrices').addEventListener('input',updateMedian);
 for(const id of ['cfgGoodProfit','cfgGoodMargin','cfgMidProfit'])$(id).addEventListener('change',saveSettings);
 $('resetSettings').onclick=()=>{settings={...DEFAULT_SETTINGS};loadSettings();localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));$('settingsInfo').textContent='Standardeinstellungen wiederhergestellt.';render()};
 $('ebaySearch').onclick=()=>{const q=$('title').value.trim();if(!q){alert('Bitte zuerst den Artikel oder das genaue Modell eintragen.');$('title').focus();return}const url='https://www.ebay.de/sch/i.html?_nkw='+encodeURIComponent(q)+'&LH_Sold=1&LH_Complete=1';window.open(url,'_blank','noopener')};
