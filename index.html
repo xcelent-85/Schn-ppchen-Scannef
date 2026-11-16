@@ -7,7 +7,7 @@
   <meta name="description" content="Persönlicher Schnäppchen-Scanner für Kleinanzeigen und eBay-Preisvergleiche.">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <title>Schnäppchen-Scanner · Version 2.5</title>
+  <title>Schnäppchen-Scanner · Version 2.6</title>
   <style>
     :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#172033;background:#f3f5f9}
     *{box-sizing:border-box}body{margin:0}.top{background:#172554;color:white;padding:24px max(18px,calc((100% - 920px)/2)) 26px}
@@ -46,7 +46,7 @@
     <button type="button" id="navSettings" class="secondary" aria-current="false">⚙️ Einstellungen</button>
   </nav>
   <div id="offersView">
-  <div class="notice"><strong>Version 2.5:</strong> Beim Anzeigenimport wird ein optimierter eBay-Suchbegriff vorgeschlagen. Du kannst ihn vor jeder Suche kontrollieren und bearbeiten. Eine automatische Hintergrundsuche ist noch nicht aktiviert.</div>
+  <div class="notice"><strong>Version 2.6:</strong> Beim Einfügen eines Kleinanzeigen-Links wird der Anzeigentitel, soweit er in der URL enthalten ist, automatisch übernommen. Der eBay-Suchbegriff wird daraus vorgeschlagen und bleibt bearbeitbar.</div>
 
   <section class="card" id="searchJobsCard">
     <h2>🔍 Meine Suchaufträge</h2>
@@ -123,7 +123,7 @@
     </details>
   </section>
   <p class="muted" id="locationNote">Standort-Ziel für deine Suche: 16818 Kränzlin · Umkreis 20 km · alle Kategorien. Die App ist zunächst eine persönliche Sammel- und Rechenhilfe.</p>
-  <footer class="muted" style="text-align:center;padding:16px 0 8px;border-top:1px solid #e2e8f0;margin-top:18px">Schnäppchen-Scanner · Aktuelle Version <strong>2.5</strong></footer>
+  <footer class="muted" style="text-align:center;padding:16px 0 8px;border-top:1px solid #e2e8f0;margin-top:18px">Schnäppchen-Scanner · Aktuelle Version <strong>2.6</strong></footer>
 </main>
 <script>
 const $ = id => document.getElementById(id);
@@ -181,7 +181,7 @@ $('navOffers').onclick=()=>showView('offers');
 $('toggleImportForm').onclick=()=>setImportPanel($('importFormPanel').hidden);
 $('hideImportForm').onclick=()=>setImportPanel(false);
 $('navSettings').onclick=()=>showView('settings');
-$('dealForm').addEventListener('submit',addFromForm);$('title').addEventListener('input',()=>{autoMatchSearchJob();if(!$('ebayQuery').dataset.manual)$('ebayQuery').value=suggestEbayQuery($('title').value)});$('ebayQuery').addEventListener('input',()=>{$('ebayQuery').dataset.manual='1'});$('reset').onclick=clearForm;$('filter').oninput=render;$('ratingFilter').onchange=render;$('reviewFilter').onchange=render;$('profileFilter').onchange=render;$('priceFilter').onchange=render;$('sortOrder').onchange=render;$('soldPrices').addEventListener('input',updateMedian);
+$('dealForm').addEventListener('submit',addFromForm);$('url').addEventListener('input',fillTitleFromAdUrl);$('url').addEventListener('change',fillTitleFromAdUrl);$('title').addEventListener('input',()=>{autoMatchSearchJob();if(!$('ebayQuery').dataset.manual)$('ebayQuery').value=suggestEbayQuery($('title').value)});$('ebayQuery').addEventListener('input',()=>{$('ebayQuery').dataset.manual='1'});$('reset').onclick=clearForm;$('filter').oninput=render;$('ratingFilter').onchange=render;$('reviewFilter').onchange=render;$('profileFilter').onchange=render;$('priceFilter').onchange=render;$('sortOrder').onchange=render;$('soldPrices').addEventListener('input',updateMedian);
 for(const id of ['cfgGoodProfit','cfgGoodMargin','cfgMidProfit'])$(id).addEventListener('change',saveSettings);
 $('resetSettings').onclick=()=>{settings={...DEFAULT_SETTINGS};loadSettings();localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));$('settingsInfo').textContent='Standardeinstellungen wiederhergestellt.';render()};
 $('ebaySearch').onclick=()=>{const q=$('ebayQuery').value.trim();if(!q){alert('Bitte zuerst einen eBay-Suchbegriff eintragen.');$('ebayQuery').focus();return}const url='https://www.ebay.de/sch/i.html?_nkw='+encodeURIComponent(q)+'&LH_Sold=1&LH_Complete=1';window.open(url,'_blank','noopener')};
@@ -216,6 +216,24 @@ function toggleSearchJob(id){const j=searchJobs.find(x=>x.id===id);if(!j)return;
 function deleteSearchJob(id){if(confirm('Diesen Suchauftrag löschen?')){searchJobs=searchJobs.filter(x=>x.id!==id);saveSearchJobs()}}
 $('searchJobForm').addEventListener('submit',submitSearchJob);
 $('clearJobForm').onclick=clearJobForm;
+function titleFromKleinanzeigenUrl(raw){
+ try{
+  const u=new URL(String(raw||'').trim());
+  if(!/(^|\\.)kleinanzeigen\\.de$/i.test(u.hostname))return '';
+  const m=u.pathname.match(/\\/s-anzeige\\/([^/]+)\\/(?:\\d{6,})(?:-|\\/|$)/i);
+  if(!m)return '';
+  let slug=m[1];
+  try{slug=decodeURIComponent(slug)}catch(e){}
+  return slug.replace(/[-_]+/g,' ').replace(/\\s+/g,' ').trim();
+ }catch(e){return ''}
+}
+function fillTitleFromAdUrl(){
+ const extracted=titleFromKleinanzeigenUrl($('url').value);
+ if(!extracted)return;
+ $('title').value=extracted;
+ autoMatchSearchJob();
+ if(!$('ebayQuery').dataset.manual)$('ebayQuery').value=suggestEbayQuery(extracted);
+}
 function suggestEbayQuery(raw){
  const stop=new Set(['zustand','top','gut','guter','gute','gebraucht','wie','neu','neuwertig','funktioniert','einwandfrei','muss','weg','schnell','abzugeben','angebot','vb','festpreis','inkl','inklusive','versand','nur','heute','selten','original','siehe','bilder','bild','privat','verkaufe','verkauft','akku','akkus','zubehör','mit','ohne','und','der','die','das','für','von']);
  const words=String(raw||'').replace(/https?:\/\/\S+/gi,' ').replace(/[€£$]\s*\d+[.,]?\d*/g,' ').replace(/\d+[.,]?\d*\s*(?:€|EUR)/gi,' ').replace(/[^\p{L}\p{N}+.-]+/gu,' ').trim().split(/\s+/).filter(Boolean);
