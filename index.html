@@ -7,7 +7,7 @@
   <meta name="description" content="Persönlicher Schnäppchen-Scanner für Kleinanzeigen und eBay-Preisvergleiche.">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <title>Schnäppchen-Scanner · Version 2.1</title>
+  <title>Schnäppchen-Scanner · Version 2.2</title>
   <style>
     :root{font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#172033;background:#f3f5f9}
     *{box-sizing:border-box}body{margin:0}.top{background:#172554;color:white;padding:24px max(18px,calc((100% - 920px)/2)) 26px}
@@ -27,6 +27,7 @@
     .status{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:750;margin:4px 0 7px}.status.good{background:#dcfce7;color:#166534}.status.mid{background:#fef3c7;color:#92400e}.status.bad{background:#fee2e2;color:#991b1b}
     .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.toolbar input{flex:1;min-width:170px}
     details summary{cursor:pointer;font-weight:650;font-size:14px}
+    .mode-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:12px 0 16px}.mode-card{background:#f8fafc;border:2px solid #e2e8f0;border-radius:12px;padding:13px;text-align:left;color:#172033;min-height:96px}.mode-card strong{display:block;margin-bottom:5px}.mode-card span{display:block;font-size:12px;font-weight:400;color:#64748b;line-height:1.4}.mode-card[aria-pressed="true"]{border-color:#1d4ed8;background:#eff6ff}.mode-card[aria-pressed="true"] strong{color:#1d4ed8}
     .appnav{display:flex;gap:8px;margin:0 0 15px;position:sticky;top:0;z-index:20;background:#f3f5f9;padding:9px 0;border-bottom:1px solid #e2e8f0}
     .appnav button{flex:1;min-height:48px;font-size:15px}
     .appnav button[aria-current="page"]{background:#172554;color:#fff;box-shadow:0 2px 7px #17255430}
@@ -45,15 +46,19 @@
     <button type="button" id="navSettings" class="secondary" aria-current="false">⚙️ Einstellungen</button>
   </nav>
   <div id="offersView">
-  <div class="notice"><strong>Version 2.1:</strong> Neue importierte Angebote werden als „Neu – prüfen“ markiert. Du kannst nach Suchauftrag, Prüfstatus und Preisgrenze filtern. Angebote oberhalb des hinterlegten Maximalpreises werden hervorgehoben. Die bisherige Dublettenerkennung bleibt erhalten. Eine automatische Hintergrundsuche ist noch nicht aktiviert.</div>
+  <div class="notice"><strong>Version 2.2:</strong> Suchaufträge lassen sich jetzt übersichtlich als Kategorie-Suche oder Artikel-/Modell-Suche anlegen. Beide Varianten nutzen dasselbe Formular. Eine automatische Hintergrundsuche ist noch nicht aktiviert.</div>
 
   <section class="card" id="searchJobsCard">
     <h2>🔍 Meine Suchaufträge</h2>
-    <p class="muted">Verwalte mehrere Suchprofile mit eigenen Preis- und Gewinnzielen. Die Profile werden auf diesem Gerät gespeichert; eine automatische Hintergrundsuche ist noch nicht aktiviert.</p>
+    <p class="muted">Lege einen Suchauftrag an – entweder für eine ganze Kategorie oder gezielt für einen Artikel bzw. ein Modell. Du musst nur eine Variante wählen.</p>
+    <div class="mode-options" role="group" aria-label="Art des Suchauftrags">
+      <button type="button" class="mode-card" id="modeCategory" aria-pressed="true"><strong>▦ Kategorie-Suche</strong><span>Alle passenden Anzeigen einer Kategorie im gewählten Umkreis finden.</span></button>
+      <button type="button" class="mode-card" id="modeProduct" aria-pressed="false"><strong>⌕ Artikel-/Modell-Suche</strong><span>Gezielt nach einem bestimmten Produkt oder Modell suchen.</span></button>
+    </div>
     <form id="searchJobForm">
       <div class="grid">
         <div><label for="jobName">Name des Suchauftrags</label><input id="jobName" required placeholder="z. B. Makita Werkzeuge"></div>
-        <div><label for="jobKeywords">Suchbegriffe / Modell</label><input id="jobKeywords" placeholder="Optional – leer lassen für alle Anzeigen der Kategorie"></div>
+        <div><label for="jobKeywords" id="jobKeywordsLabel">Suchbegriffe (optional)</label><input id="jobKeywords" placeholder="Bei Kategorie-Suche leer lassen"><p class="muted" id="jobKeywordsHelp">Bei einer Kategorie-Suche bleibt dieses Feld leer. Dann gilt der Suchauftrag für die gesamte ausgewählte Kategorie.</p></div>
         <div><label for="jobLocation">Standort</label><input id="jobLocation" value="16818 Kränzlin"></div>
         <div><label for="jobRadius">Umkreis (km)</label><input id="jobRadius" type="number" min="1" max="500" value="20"></div>
         <div><label for="jobCategory">Kategorie</label><select id="jobCategory"><option>Alle Kategorien</option><option>Haus & Garten</option><option>Heimwerken</option><option>Elektronik</option><option>Freizeit, Hobby & Nachbarschaft</option><option>Auto, Rad & Boot</option><option>Andere Kategorie</option></select></div>
@@ -68,7 +73,8 @@
   </section>
 
   <section class="card">
-    <h2>Anzeige übernehmen / Angebot erfassen</h2>
+    <h2>📥 Anzeige importieren / Angebot erfassen</h2>
+    <p class="muted">Hier kommt eine einzelne, bereits gefundene Kleinanzeigen-Anzeige hinein. Dieser Bereich ist kein zweiter Suchauftrag. Füge den Anzeigenlink ein und ergänze nur Daten, die nicht automatisch übernommen werden können.</p>
     <form id="dealForm">
       <div class="grid">
         <div class="wide"><label for="title">Artikel / Modell</label><input id="title" required placeholder="z. B. Makita DHP..."></div>
@@ -113,7 +119,7 @@
     </details>
   </section>
   <p class="muted" id="locationNote">Standort-Ziel für deine Suche: 16818 Kränzlin · Umkreis 20 km · alle Kategorien. Die App ist zunächst eine persönliche Sammel- und Rechenhilfe.</p>
-  <footer class="muted" style="text-align:center;padding:16px 0 8px;border-top:1px solid #e2e8f0;margin-top:18px">Schnäppchen-Scanner · Aktuelle Version <strong>2.1</strong></footer>
+  <footer class="muted" style="text-align:center;padding:16px 0 8px;border-top:1px solid #e2e8f0;margin-top:18px">Schnäppchen-Scanner · Aktuelle Version <strong>2.2</strong></footer>
 </main>
 <script>
 const $ = id => document.getElementById(id);
@@ -174,8 +180,19 @@ $('resetSettings').onclick=()=>{settings={...DEFAULT_SETTINGS};loadSettings();lo
 $('ebaySearch').onclick=()=>{const q=$('title').value.trim();if(!q){alert('Bitte zuerst den Artikel oder das genaue Modell eintragen.');$('title').focus();return}const url='https://www.ebay.de/sch/i.html?_nkw='+encodeURIComponent(q)+'&LH_Sold=1&LH_Complete=1';window.open(url,'_blank','noopener')};
 $('export').onclick=()=>{const blob=new Blob([JSON.stringify(deals,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='schnappchen-scanner-daten.json';a.click();URL.revokeObjectURL(a.href)};
 $('clearAll').onclick=()=>{if(confirm('Wirklich alle lokal gespeicherten Angebote löschen?')){deals=[];persist()}};
+let searchJobMode='category';
+function setSearchJobMode(mode){
+ searchJobMode=mode==='product'?'product':'category';
+ $('modeCategory').setAttribute('aria-pressed',String(searchJobMode==='category'));
+ $('modeProduct').setAttribute('aria-pressed',String(searchJobMode==='product'));
+ $('jobKeywordsLabel').textContent=searchJobMode==='product'?'Suchbegriff / Modell':'Suchbegriffe (optional)';
+ $('jobKeywords').placeholder=searchJobMode==='product'?'z. B. Bosch Professional GSR 18V':'Bei Kategorie-Suche leer lassen';
+ $('jobKeywordsHelp').textContent=searchJobMode==='product'?'Gib das gewünschte Produkt oder Modell ein. Die Kategorie kann zusätzlich eingegrenzt werden.':'Bei einer Kategorie-Suche bleibt dieses Feld leer. Dann gilt der Suchauftrag für die gesamte ausgewählte Kategorie.';
+}
+$('modeCategory').onclick=()=>setSearchJobMode('category');
+$('modeProduct').onclick=()=>setSearchJobMode('product');
 function saveSearchJobs(){localStorage.setItem(SEARCH_JOBS_KEY,JSON.stringify(searchJobs));renderSearchJobs()}
-function clearJobForm(){ $('searchJobForm').reset();$('jobLocation').value='16818 Kränzlin';$('jobRadius').value=20;$('jobCategory').value='Alle Kategorien';$('jobMinProfit').value=30;$('jobMinMargin').value=25;$('searchJobForm').dataset.edit='';$('saveJobButton').textContent='Suchauftrag speichern';$('jobFormInfo').textContent='Du kannst beliebig viele Suchaufträge mit unterschiedlichen Grenzwerten anlegen.'}
+function clearJobForm(){ $('searchJobForm').reset();setSearchJobMode('category');$('jobLocation').value='16818 Kränzlin';$('jobRadius').value=20;$('jobCategory').value='Alle Kategorien';$('jobMinProfit').value=30;$('jobMinMargin').value=25;$('searchJobForm').dataset.edit='';$('saveJobButton').textContent='Suchauftrag speichern';$('jobFormInfo').textContent='Du kannst beliebig viele Suchaufträge mit unterschiedlichen Grenzwerten anlegen.'}
 function renderSearchJobs(){
  const selected=$('dealSearchJob').value;const selectedProfile=$('profileFilter').value;
  $('profileFilter').innerHTML='<option value="all">Alle Suchaufträge</option><option value="none">Ohne Suchauftrag</option>'+searchJobs.map(j=>'<option value="'+safe(j.id)+'">'+safe(j.name)+'</option>').join('');
@@ -184,17 +201,17 @@ function renderSearchJobs(){
  $('dealSearchJob').value=searchJobs.some(j=>j.id===selected)?selected:'';
  const box=$('searchJobsList');
  if(!searchJobs.length){box.innerHTML='<div class="empty">Noch keine Suchaufträge angelegt.</div>';return}
- box.innerHTML=searchJobs.map(j=>`<article class="item"><h3>${safe(j.name)}</h3><div class="stats"><span>Suchbegriffe: <b>${j.keywords?safe(j.keywords):'Alle Anzeigen der Kategorie'}</b></span><span>Kategorie: <b>${safe(j.category)}</b></span></div><div class="stats"><span>Standort: <b>${safe(j.location)}</b> · ${Number(j.radius)||20} km</span><span>Max. Kaufpreis: <b>${j.maxPrice?euro(j.maxPrice):'nicht begrenzt'}</b></span></div><div class="stats"><span>Mindestgewinn: <b>${euro(j.minProfit)}</b></span><span>Mindestrendite: <b>${Number(j.minMargin)||0} %</b></span></div><span class="status ${j.active===false?'bad':'good'}">${j.active===false?'Pausiert':'Aktiv · lokal gespeichert'}</span><div class="actions"><button class="secondary" type="button" onclick="editSearchJob('${j.id}')">Bearbeiten</button><button class="secondary" type="button" onclick="toggleSearchJob('${j.id}')">${j.active===false?'Aktivieren':'Pausieren'}</button><button class="danger" type="button" onclick="deleteSearchJob('${j.id}')">Löschen</button></div></article>`).join('');
+ box.innerHTML=searchJobs.map(j=>`<article class="item"><h3>${safe(j.name)}</h3><div class="stats"><span>Suchart: <b>${(j.mode|| (j.keywords?'product':'category'))==='product'?'Artikel-/Modell-Suche':'Kategorie-Suche'}</b></span><span>Suchbegriffe: <b>${j.keywords?safe(j.keywords):'Alle Anzeigen der Kategorie'}</b></span><span>Kategorie: <b>${safe(j.category)}</b></span></div><div class="stats"><span>Standort: <b>${safe(j.location)}</b> · ${Number(j.radius)||20} km</span><span>Max. Kaufpreis: <b>${j.maxPrice?euro(j.maxPrice):'nicht begrenzt'}</b></span></div><div class="stats"><span>Mindestgewinn: <b>${euro(j.minProfit)}</b></span><span>Mindestrendite: <b>${Number(j.minMargin)||0} %</b></span></div><span class="status ${j.active===false?'bad':'good'}">${j.active===false?'Pausiert':'Aktiv · lokal gespeichert'}</span><div class="actions"><button class="secondary" type="button" onclick="editSearchJob('${j.id}')">Bearbeiten</button><button class="secondary" type="button" onclick="toggleSearchJob('${j.id}')">${j.active===false?'Aktivieren':'Pausieren'}</button><button class="danger" type="button" onclick="deleteSearchJob('${j.id}')">Löschen</button></div></article>`).join('');
 }
-function submitSearchJob(e){e.preventDefault();const id=$('searchJobForm').dataset.edit||crypto.randomUUID();const old=searchJobs.find(j=>j.id===id);const job={id,name:$('jobName').value.trim(),keywords:$('jobKeywords').value.trim(),location:$('jobLocation').value.trim()||'16818 Kränzlin',radius:Math.max(1,Number($('jobRadius').value)||20),category:$('jobCategory').value,maxPrice:$('jobMaxPrice').value,minProfit:Math.max(0,Number($('jobMinProfit').value)||0),minMargin:Math.max(0,Number($('jobMinMargin').value)||0),active:old?.active!==false,created:old?.created||new Date().toISOString()};const i=searchJobs.findIndex(j=>j.id===id);if(i>=0)searchJobs[i]=job;else searchJobs.unshift(job);saveSearchJobs();clearJobForm();$('jobFormInfo').textContent='Suchauftrag gespeichert.'}
-function editSearchJob(id){const j=searchJobs.find(x=>x.id===id);if(!j)return;for(const [field,key] of [['jobName','name'],['jobKeywords','keywords'],['jobLocation','location'],['jobRadius','radius'],['jobCategory','category'],['jobMaxPrice','maxPrice'],['jobMinProfit','minProfit'],['jobMinMargin','minMargin']])$(field).value=j[key]??'';$('searchJobForm').dataset.edit=id;$('saveJobButton').textContent='Änderungen speichern';$('jobFormInfo').textContent='Suchauftrag wird bearbeitet.';$('searchJobsCard').scrollIntoView({behavior:'smooth',block:'start'})}
+function submitSearchJob(e){e.preventDefault();const id=$('searchJobForm').dataset.edit||crypto.randomUUID();const old=searchJobs.find(j=>j.id===id);const job={id,name:$('jobName').value.trim(),mode:searchJobMode,keywords:$('jobKeywords').value.trim(),location:$('jobLocation').value.trim()||'16818 Kränzlin',radius:Math.max(1,Number($('jobRadius').value)||20),category:$('jobCategory').value,maxPrice:$('jobMaxPrice').value,minProfit:Math.max(0,Number($('jobMinProfit').value)||0),minMargin:Math.max(0,Number($('jobMinMargin').value)||0),active:old?.active!==false,created:old?.created||new Date().toISOString()};const i=searchJobs.findIndex(j=>j.id===id);if(i>=0)searchJobs[i]=job;else searchJobs.unshift(job);saveSearchJobs();clearJobForm();$('jobFormInfo').textContent='Suchauftrag gespeichert.'}
+function editSearchJob(id){const j=searchJobs.find(x=>x.id===id);if(!j)return;setSearchJobMode(j.mode||(j.keywords?'product':'category'));for(const [field,key] of [['jobName','name'],['jobKeywords','keywords'],['jobLocation','location'],['jobRadius','radius'],['jobCategory','category'],['jobMaxPrice','maxPrice'],['jobMinProfit','minProfit'],['jobMinMargin','minMargin']])$(field).value=j[key]??'';$('searchJobForm').dataset.edit=id;$('saveJobButton').textContent='Änderungen speichern';$('jobFormInfo').textContent='Suchauftrag wird bearbeitet.';$('searchJobsCard').scrollIntoView({behavior:'smooth',block:'start'})}
 function toggleSearchJob(id){const j=searchJobs.find(x=>x.id===id);if(!j)return;j.active=j.active===false;saveSearchJobs()}
 function deleteSearchJob(id){if(confirm('Diesen Suchauftrag löschen?')){searchJobs=searchJobs.filter(x=>x.id!==id);saveSearchJobs()}}
 $('searchJobForm').addEventListener('submit',submitSearchJob);
 $('clearJobForm').onclick=clearJobForm;
 function receiveShare(){const p=new URLSearchParams(location.search);const sharedUrl=p.get('url')||'';const title=p.get('title')||p.get('text')||'';if(sharedUrl||title){$('url').value=sharedUrl;const clean=title.replace(sharedUrl,'').trim();if(clean)$('title').value=clean.slice(0,140);autoMatchSearchJob();history.replaceState({},'',location.pathname);const duplicate=findDuplicateByUrl(sharedUrl);if(duplicate){alert('Diese Anzeige ist bereits in deinen Angeboten vorhanden. Der vorhandene Eintrag wird geöffnet.');editDeal(duplicate.id)}}}
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
-loadSettings();showView('offers');receiveShare();render();renderSearchJobs();
+loadSettings();setSearchJobMode('category');showView('offers');receiveShare();render();renderSearchJobs();
 </script>
 </body>
 </html>
