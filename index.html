@@ -253,12 +253,15 @@ function analyzeCopiedListingText(raw){
  const source=String(raw||'').replace(/\r/g,'');
  if(!source.trim())return {price:null,description:'',message:'Bitte zuerst den kopierten Seitentext einfügen.'};
  const lines=source.split('\n').map(x=>x.trim()).filter(Boolean);
- const pricePatterns=[/(?:Preis|VB|Festpreis|zu verschenken)\s*:?\s*(\d{1,6}(?:[.,]\d{1,2})?)\s*(?:€|EUR)?/i,/(\d{1,6}(?:[.,]\d{1,2})?)\s*(?:€|EUR)\b/i,/€\s*(\d{1,6}(?:[.,]\d{1,2})?)/i];
+ const descStart=lines.findIndex(x=>/^beschreibung\s*:?\s*$/i.test(x));
+ const priceLines=descStart>=0?lines.slice(0,descStart):lines.slice(0,25);
+ const pricePatterns=[/(?:Preis|VB|Festpreis)\s*:?\s*(\d{1,6}(?:[.,]\d{1,2})?)/i,/(\d{1,6}(?:[.,]\d{1,2})?)\s*(?:€|EUR)(?=\s|$|[.,;])/i,/€\s*(\d{1,6}(?:[.,]\d{1,2})?)/i];
  let price=null,priceLine=-1;
- for(let i=0;i<lines.length&&price===null;i++){
-  const line=lines[i];
+ for(let i=0;i<priceLines.length&&price===null;i++){
+  const line=priceLines[i];
   if(/\b(?:PLZ|km|kilometer|telefon|anzeigen-ID|aufgerufen|eingestellt am)\b/i.test(line))continue;
   for(const re of pricePatterns){const m=line.match(re);if(m){const n=Number(m[1].replace(/\./g,'').replace(',','.'));if(Number.isFinite(n)&&n>0&&n<1000000){price=n;priceLine=i;break}}}
+ }
  }
  let description='';
  const descIndex=lines.findIndex(x=>/^beschreibung\s*:?\s*$/i.test(x));
