@@ -262,7 +262,6 @@ function analyzeCopiedListingText(raw){
   if(/\b(?:PLZ|km|kilometer|telefon|anzeigen-ID|aufgerufen|eingestellt am)\b/i.test(line))continue;
   for(const re of pricePatterns){const m=line.match(re);if(m){const n=Number(m[1].replace(/\./g,'').replace(',','.'));if(Number.isFinite(n)&&n>0&&n<1000000){price=n;priceLine=i;break}}}
  }
- }
  let description='';
  const descIndex=lines.findIndex(x=>/^beschreibung\s*:?\s*$/i.test(x));
  if(descIndex>=0)description=lines.slice(descIndex+1).filter(x=>!/^mehr anzeigen$/i.test(x)).join('\n').trim();
